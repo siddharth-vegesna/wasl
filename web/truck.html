@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wasl · Truck node</title>
+<link rel="stylesheet" href="/common.css"><link rel="stylesheet" href="/pixel.css" data-skin>
+<style>
+body{padding:12px 15px 24px}
+.head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:9px}
+.head .sp{flex:1}
+.road{position:relative}
+.crop{aspect-ratio:240/45;overflow:hidden;display:flex;align-items:flex-end}
+.cap{padding:9px 12px;border-top:var(--u) solid var(--ink);min-height:39px}
+.ctl{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:6px 0 12px}
+.road{margin-bottom:18px}
+.two{display:grid;grid-template-columns:1.5fr 1fr;gap:15px}
+@media(max-width:760px){.two{grid-template-columns:1fr}}
+.panel{padding:12px}
+.panel .lab{margin-top:0}
+.bay{display:flex;flex-wrap:wrap;gap:6px;padding:9px;min-height:66px;align-items:center;background:var(--paper2);border:var(--u) solid var(--ink);margin-bottom:9px}
+.crate{width:48px;height:48px;display:grid;place-items:center;background:var(--paper);border:var(--u) solid var(--ink);border-bottom-width:9px;border-bottom-color:var(--c);animation:pop .3s steps(4)}
+.crate.partial{border-style:dashed;background:none}
+.crate.freed{border-style:dotted;border-color:var(--mute);background:none}
+.crate.freed img{opacity:.3}
+.row{display:flex;align-items:center;gap:9px;padding:6px 3px;border-top:1px dashed var(--mute);font-size:12.5px}
+.row:first-child{border-top:0}
+.row .g{flex:1;min-width:0}.row .g b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.freed{color:var(--mute)}
+.pri{width:9px;height:24px;flex:none;background:var(--c);border:1px solid var(--ink)}
+.foot{margin-top:12px;font-size:12px;color:var(--mute)}
+</style>
+</head>
+<body>
+<div class="head">
+  <span data-brand="3"></span>
+  <span class="tag" id="name">Truck node</span>
+  <span class="tag ok" id="kHold"></span>
+  <span class="tag" id="kFreed"></span>
+  <div class="sp"></div>
+  <button class="btn" id="reset">Reset demo</button>
+</div>
+<div class="ctl">
+  <span data-px="2">Range</span>
+  <div class="seg" id="pos"><button class="btn" data-pos="camp">At camp</button><button class="btn" data-pos="road">On the road</button><button class="btn" data-pos="town">In town</button><button class="btn" data-pos="free">Real radio</button></div>
+  <span data-px="2">Link</span>
+  <div class="seg" id="qual"><button class="btn" data-q="strong">Strong</button><button class="btn" data-q="weak">Weak · 20% loss</button></div>
+</div>
+<div class="road box"><div class="crop"><canvas class="px" id="scene"></canvas></div><div class="cap" id="say"></div></div>
+<div class="two">
+  <div class="box panel"><div class="lab" data-px="2">Cargo hold</div><div class="bay" id="bay"></div><div id="manifest"></div></div>
+  <div class="box panel"><div class="lab" data-px="2">Contact log</div><div id="contacts"></div></div>
+</div>
+<div class="foot" id="foot"></div>
+<script src="/common.js"></script>
+<script>
+let S = null;
+const scene = Scene($('#scene'), 'route');
+const post = (p, d) => fetch(p, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(d || {})}).then(r => r.json());
+const SAY = {free: 'Real radio. Whoever is in Wi-Fi range can sync.', camp: 'Parked at the camp. Phones sync. The town cannot hear us.',
+  road: 'Driving. Nobody in range. Everything waits in the hold.', town: 'In town. Delivering to the clinic, collecting replies.'};
+async function poll() {
+  try { S = await (await fetch('/api/state', {cache: 'no-store'})).json(); render(); } catch (e) {}
+  setTimeout(poll, 800);
+}
+function render() {
+  scene.set({pos: S.position, weak: S.quality === 'weak'});
+  $('#name').textContent = S.node.name + ' · data mule';
+  H('#say').html = px(SAY[S.position] + (S.quality === 'weak' ? ' Weak link: urgent first.' : ''), 2);
+  $$('#pos .btn').forEach(b => b.classList.toggle('on', b.dataset.pos === S.position));
+  $$('#qual .btn').forEach(b => b.classList.toggle('on', b.dataset.q === S.quality));
+  const all = S.bundles.filter(b => b.dst !== S.node.id).sort((a, b) => a.purged - b.purged || a.pri - b.pri || b.created - a.created);
+  $('#kHold').innerHTML = `<i></i>${S.hold.n} in the hold · ${kb(S.hold.bytes)}`;
+  $('#kFreed').textContent = `${all.filter(b => b.purged).length} delivered and freed`;
+  H('#bay').html = all.slice(0, 40).map(b => {
+    const part = !b.complete && !b.purged;
+    return `<div class="crate ${b.purged ? 'freed' : part ? 'partial' : ''}" style="--c:${PRI_COLOR[b.pri]}" title="${esc(titleOf(b))}">${ico(b, 2)}</div>`;
+  }).join('') || '<small>The hold is empty. Drive to a camp.</small>';
+  H('#manifest').html = all.slice(0, 30).map(b => {
+    const to = b.dst === 'clinic' ? 'clinic' : b.dst === '*' ? 'every camp' : (b.camp || 'phone');
+    const st = b.purged ? '<span class="tag">delivered · freed</span>' : !b.complete
+      ? `${pbar(100 * b.blob_have / b.blob_size, 8)}<span class="tag warn">partial ${Math.round(100 * b.blob_have / b.blob_size)}%</span>` : '<span class="tag ok">carrying</span>';
+    return `<div class="row ${b.purged ? 'freed' : ''}"><span class="pri" style="--c:${PRI_COLOR[b.pri]}"></span>
+      <div class="g"><b>${esc(titleOf(b) || 'Message')}</b><small>P${b.pri} · ${esc(b.src_name || b.src)} → ${to} · ${kb(JSON.stringify(b.body).length + 96 + b.blob_size)}</small></div>${st}</div>`;
+  }).join('');
+  H('#contacts').html = S.contacts.map(c => `<div class="row">${sp(c.role === 'phone' ? 'phone' : 'clinic', 2)}
+    <div class="g"><b>${esc(c.peer_name || c.peer)}${c.camp ? ' · ' + esc(c.camp) : ''}</b><small>${hm(c.t0)}–${hm(c.t1)} · ${c.n_in} in · ${c.n_out} out</small></div></div>`).join('')
+    || '<div class="row"><small>No contacts yet.</small></div>';
+  $('#foot').textContent = `Power: 5 V from the truck's 12 V socket. Clock: ${S.clock_learned ? 'learned from a phone (the Pi has no clock battery)' : hm(S.time)}.`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-pos],[data-q],#reset'); if (!b) return;
+  if (b.id === 'reset') { if (confirm('Wipe this node and reseed the simulated history?')) post('/api/admin/reset'); return; }
+  post('/api/admin/link', b.dataset.pos ? {position: b.dataset.pos} : {quality: b.dataset.q});
+});
+poll();
+</script>
+</body>
+</html>

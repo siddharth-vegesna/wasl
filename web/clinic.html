@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wasl · Clinic console</title>
+<link rel="stylesheet" href="/common.css"><link rel="stylesheet" href="/pixel.css" data-skin>
+<style>
+body{overflow:hidden}
+.bar{height:60px;display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:var(--u) solid var(--ink);background:var(--paper)}
+.bar .sp{flex:1}
+.cols{display:grid;grid-template-columns:312px 1fr 418px;gap:18px;padding:18px;height:calc(100vh - 60px)}
+.cols>*{min-height:0;overflow:auto;padding:3px 9px 9px 3px}
+#queue .lab,#side .lab{margin-top:0}
+.case{display:flex;gap:12px;align-items:center;width:calc(100% - 9px);text-align:start;padding:9px;margin-bottom:12px;justify-content:flex-start;border-inline-start:9px solid var(--c)}
+.case .t{flex:1;min-width:0}
+.case small{display:block;margin-top:3px;font-weight:400}
+.cast{margin-top:21px;padding-top:12px;border-top:var(--u) dashed var(--mute)}
+#detail{padding:21px}
+.dhead{display:flex;gap:18px;align-items:center}
+.meta{display:flex;flex-wrap:wrap;gap:3px;margin-top:9px}
+.note{margin-top:15px;padding:12px;background:var(--paper2);border-inline-start:9px solid var(--ink);font-size:15px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:6px}
+@media(max-width:900px){.two{grid-template-columns:1fr}}
+.kept{color:var(--green);font-weight:700}.miss{color:var(--red);font-weight:700}
+.shot{width:100%;display:block;border:var(--u) solid var(--ink);margin-top:6px}
+.rep{padding:9px 12px;background:var(--green);color:var(--paper);margin-bottom:12px;display:flex;gap:9px;align-items:flex-start}
+.rep small{color:var(--paper);opacity:.85;display:block;margin-top:3px}
+.quick{display:flex;flex-direction:column;gap:3px;margin:9px 0 12px}
+.quick .btn{justify-content:flex-start;text-align:start;font-weight:400}
+.send{display:flex;gap:6px;align-items:center}
+.send input{flex:1;min-width:0}
+.none{height:100%;display:grid;place-items:center;text-align:center;color:var(--mute)}
+#side{display:flex;flex-direction:column;gap:18px}
+.tcard{padding:12px;display:flex;gap:12px;align-items:center}
+#toast{position:fixed;top:72px;left:50%;transform:translate(-50%,0);z-index:50;padding:12px 18px;background:var(--red);color:var(--paper);white-space:nowrap;display:none;gap:12px;align-items:center}
+#toast.show{display:flex}
+@media(max-width:1180px){.cols{grid-template-columns:288px 1fr}#side{display:none}.bar nav{display:none}}
+</style>
+</head>
+<body>
+<header class="bar">
+  <span data-brand="3"></span>
+  <nav class="top"><a class="cur" href="/clinic">Clinic</a><a href="/stage">Stage</a><a href="/sim">Simulation</a><a href="/pitch">Pitch</a></nav>
+  <div class="sp"></div>
+  <span class="tag" id="sOpen"></span>
+  <span class="tag" id="tPill"></span>
+</header>
+<div class="cols">
+  <aside id="queue"></aside>
+  <section id="detail" class="box"></section>
+  <aside id="side">
+    <div class="box"><canvas class="px" id="map" width="200" height="128"></canvas></div>
+    <div class="box tcard" id="tcard"></div>
+  </aside>
+</div>
+<div id="toast" class="box"></div>
+<script src="/common.js"></script>
+<script>
+let S = null, world = null, sel = null, lastKey = '', draftText = '', known = null, ac = null, toastT = null, frame = 0;
+const post = (p, d) => fetch(p, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(d)}).then(r => r.json());
+const ev = (b, type, role) => (b.events || []).find(e => e.type === type && (!role || e.role === role));
+const campOf = id => (world.camps.find(c => c.id === id) || {name: id || '—', km_signal: '?'});
+const truck = () => Object.values(S.peers || {})[0] || {ok: false};
+const cases = () => S.bundles.filter(b => b.dst === 'clinic' && b.kind !== 'photo').map(b => {
+  const replies = S.bundles.filter(x => x.re === b.id && x.src === S.node.id).sort((x, y) => x.created - y.created);
+  return Object.assign(b, {replies, state: replies.length ? 'done' : ev(b, 'seen') ? 'open' : 'new'});
+}).sort((a, b) => (a.replies.length ? 1 : 0) - (b.replies.length ? 1 : 0) || a.pri - b.pri || b.created - a.created);
+
+async function poll() {
+  try {
+    S = await (await fetch('/api/state', {cache: 'no-store'})).json();
+    const key = JSON.stringify([S.bundles, truck().ok, truck().link]);
+    if (key !== lastKey) { lastKey = key; render(); }
+    topbar();
+  } catch (e) {}
+  setTimeout(poll, 900);
+}
+function topbar() {
+  const open = cases().filter(b => !b.replies.length).length, t = truck(), p = $('#tPill');
+  $('#sOpen').className = 'tag ' + (open ? 'bad' : ''); $('#sOpen').textContent = open + ' open';
+  p.className = 'tag ' + (t.ok ? (t.link === 'weak' ? 'warn' : 'ok') : '');
+  p.innerHTML = '<i></i>' + (t.ok ? `${esc(t.name)} in range${t.link === 'weak' ? ' · weak' : ''}` : `Truck out of range${t.t ? ' · last seen ' + hm(t.t) : ''}`);
+}
+function beep() {      // three soft tones when a new case lands; needs one click on the page first (browser rule)
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    [880, 660, 880].forEach((f, i) => { const o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime + i * .17;
+      o.type = 'square'; o.frequency.value = f; g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.08, t0 + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + .15);
+      o.connect(g).connect(ac.destination); o.start(t0); o.stop(t0 + .17); });
+  } catch (e) {}
+}
+function render() {
+  const cs = cases();
+  if (known) { const nw = cs.filter(b => !known.has(b.id));
+    if (nw.length) { const b = nw[0], el = $('#toast');
+      el.innerHTML = ico(b, 2) + px(`New from ${campOf(b.camp).name}: ${titleOf(b) || 'message'}`, 2); el.classList.add('show');
+      clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 4500); beep(); pick(b.id, true); } }
+  known = new Set(cs.map(b => b.id));
+  if (sel && !cs.find(b => b.id === sel)) sel = null;
+  if (!sel && cs.length) pick(cs[0].id, true);
+  H('#queue').html = `<div class="lab">${px('Triage · most urgent first', 2)}</div>` + (cs.map(b => {
+    const c = campOf(b.camp);
+    return `<button class="btn case ${b.id === sel ? 'on' : ''}" data-id="${b.id}" style="--c:${PRI_COLOR[b.pri]}">${ico(b, 2)}
+      <div class="t">${esc(titleOf(b) || 'Message')}<small>${esc(b.src_name)} · ${esc(c.name)} · ${when(b.created)}</small></div>
+      <span class="tag ${b.state === 'new' ? 'bad' : b.state === 'done' ? 'ok' : 'warn'}">${b.state === 'done' ? 'answered' : b.state}</span></button>`;
+  }).join('') || `<p style="color:var(--mute)">No messages yet. They arrive when the truck does.</p>`) +
+  `<div class="cast"><div class="lab">${px('Broadcast to every camp', 2)}</div><button class="btn" data-alert="storm">${sp('alert', 2)} Sandstorm</button><button class="btn" data-alert="heat">${sp('sun', 2)} Heat</button></div>`;
+  detail(cs.find(b => b.id === sel)); tcard();
+}
+function pick(id, quiet) {
+  sel = id; draftText = '';
+  const b = S.bundles.find(x => x.id === id);
+  if (b && !ev(b, 'seen')) post('/api/event', {bundle: id, type: 'seen'});
+  if (!quiet) render();
+}
+function detail(b) {
+  const focused = document.activeElement && document.activeElement.id === 'rtxt';
+  if (!b) { H('#detail').html = `<div class="none"><div>${sp('tent', 5)}<br><br>${px('Nothing waiting.', 3)}<br><br>Messages from the camps appear here the moment a truck comes into range.</div></div>`; return; }
+  const c = campOf(b.camp), sv = sevOf(b), cu = ev(b, 'custody'), de = ev(b, 'delivered'), se = ev(b, 'seen'), x = cu && cu.extra;
+  const kept = x && de ? (de.t <= x.eta90 ? `<span class="kept">Arrived inside the promised window.</span>` : `<span class="miss">Arrived after the promised window.</span>`) : '';
+  let tr = `<li><b>Saved on ${esc(b.src_name)}'s phone</b><time>${when(b.created)}</time><small>No signal at ${esc(c.name)}. Nearest coverage is ${c.km_signal} km away.</small></li>`;
+  if (cu) tr += `<li><b>Picked up by ${esc(cu.node_name)}</b><time>${when(cu.t)}</time><small>${x ? `Receipt promised: likely by ${when(x.eta50)}, 9 of 10 trips by ${when(x.eta90)} (from ${x.n} past trips${x.storm ? ', widened for the sandstorm warning' : ''})` : ''}</small></li>`;
+  if (de) tr += `<li><b>Delivered here</b><time>${when(de.t)}</time><small>${dur(de.t - b.created)} door to door. ${kept}</small></li>`;
+  if (se) tr += `<li><b>Read by clinic staff</b><time>${when(se.t)}</time></li>`;
+  const photos = S.bundles.filter(p => p.re === b.id && p.kind === 'photo').map(p => p.complete
+    ? `<img class="shot" src="/api/blob/${p.id}"><small>${kb(p.blob_size)} · arrived ${when(p.received)} · sent after the SOS so it never delayed it</small>`
+    : `<div class="note">Photo arriving ${pbar(100 * p.blob_have / p.blob_size)} ${Math.round(100 * p.blob_have / p.blob_size)}%<br><small>The link dropped mid-transfer. It resumes from here at the next contact.</small></div>`).join('');
+  const reps = b.replies.map(r => {
+    const rc = ev(r, 'custody'), rd = ev(r, 'delivered', 'phone');
+    const st = rd ? `Delivered to ${esc(rd.node_name)}'s phone at ${when(rd.t)}` : rc ? `On ${esc(rc.node_name)} since ${when(rc.t)}${rc.extra ? ` · next visit to ${esc(c.name)} likely by ${when(rc.extra.eta50)}` : ''}` : 'Waiting for a truck to come into range';
+    return `<div class="rep">${ico(r, 2)}<div><b>${esc(titleOf(r))}</b><small>${when(r.created)} · ${st}</small></div></div>`;
+  }).join('');
+  H('#detail').html = `<div class="dhead">${ico(b, 5)}<div>${px(titleOf(b) || 'Message', 4)}
+      <div class="meta">${sv && b.kind === 'sos' ? `<span class="tag" style="background:${sv.c}">${sv.en}</span>` : ''}<span class="tag">${esc(b.src_name)}</span><span class="tag">${esc(c.name)} · ${c.km_signal} km from signal</span>${b.body.people ? `<span class="tag">${b.body.people === 3 ? '3+' : b.body.people} ${b.body.people === 1 ? 'person' : 'people'}</span>` : ''}</div></div></div>
+    ${b.body.text ? `<div class="note">“${esc(b.body.text)}”</div>` : ''}
+    <div class="two"><div><div class="lab">${px('Chain of custody', 2)}</div><ol class="trail">${tr}</ol>${photos ? `<div class="lab">${px('Attachment', 2)}</div>${photos}` : ''}</div>
+    <div><div class="lab">${px('Reply · rides the next truck', 2)}</div>${reps}
+      <div class="quick">${Object.entries(REPLIES).map(([k, r]) => `<button class="btn" data-reply="${k}">${sp(r.i, 2)} ${esc(r.en)}</button>`).join('')}</div>
+      <div class="send"><input id="rtxt" placeholder="Or write a short reply" value="${esc(draftText)}"><button class="btn green" data-send="1">Send</button></div></div></div>`;
+  if (focused) { const i = $('#rtxt'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+}
+function drawMap() {            // 200 x 128 logical pixels, shown at exactly 2x
+  if (!S || !world) return;
+  const cv = $('#map'), g = cv.getContext('2d'), k = .2, on = truck().ok, t = world.town, cs = cases(); frame++;
+  g.fillStyle = PAL.c; g.fillRect(0, 0, 200, 128);
+  g.fillStyle = PAL.s; for (let i = 0; i < 90; i++) g.fillRect((i * 53) % 200, (i * 31 + (i % 7) * 9) % 128, 1, 1);
+  const tx = Math.round(t.x * k), ty = Math.round(t.y * k);
+  g.fillStyle = PAL.g; for (let y = -30; y <= 30; y++) for (let x = -30; x <= 30; x++) if (x * x + y * y < 900 && (x + y) % 2 === 0 && (x * x + y * y > 700 || (x + y) % 4 === 0)) g.fillRect(tx + x, ty + y, 1, 1);
+  const pts = [t].concat(world.camps, [t]);
+  g.fillStyle = PAL.k;
+  for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], n = Math.hypot(b.x - a.x, b.y - a.y) * k;
+    for (let s = (on ? 0 : frame % 4); s < n; s += 4) g.fillRect(Math.round((a.x + (b.x - a.x) * s / n) * k), Math.round((a.y + (b.y - a.y) * s / n) * k), 1, 1); }
+  world.camps.forEach((c, ci) => {
+    const x = Math.round(c.x * k), y = Math.round(c.y * k), open = cs.filter(b => b.camp === c.id && !b.replies.length);
+    blit(g, 'tentmini', x - 3, y - 3);
+    if (open.length && frame % 2) { g.fillStyle = PRI_COLOR[Math.min(...open.map(b => b.pri))]; g.fillRect(x - 7, y - 7, 15, 1); g.fillRect(x - 7, y + 5, 15, 1); g.fillRect(x - 7, y - 7, 1, 13); g.fillRect(x + 7, y - 7, 1, 13); }
+    ptext(g, c.name, Math.round(Math.max(1, Math.min(x - c.name.length * 2.6, 199 - c.name.length * 5.4))), ci % 2 ? y - 14 : y + 8, PAL.k);
+  });
+  blit(g, 'clinic', tx - 8, ty - 9);
+  if (on) blit(g, 'truck', tx - 44, ty - 3);
+  ptext(g, 'SIMULATED MAP · LIWA', 2, 120, PAL.d);
+}
+function tcard() {
+  const t = truck(), out = S.bundles.filter(b => b.src === S.node.id && !ev(b, 'custody')).length;
+  const cs = cases(), d = cs.filter(b => ev(b, 'delivered')).map(b => ev(b, 'delivered').t - b.created).sort((a, b) => a - b);
+  H('#tcard').html = `${sp('truck', 2)}<div><b>${esc(t.name || 'Truck')}</b> ${t.ok ? 'is docked and syncing both ways.' : `is out on its route${t.t ? ', last contact ' + when(t.t) : ''}. We do not know where, and the map does not pretend to.`}
+    <div class="meta"><span class="tag ${out ? 'warn' : ''}">${out} repl${out === 1 ? 'y' : 'ies'} waiting for a truck</span>${d.length ? `<span class="tag">median door to door ${dur(d[Math.floor(d.length / 2)])}</span>` : ''}</div></div>`;
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-id],[data-reply],[data-send],[data-alert]'); if (!el) return;
+  const d = el.dataset, b = S.bundles.find(x => x.id === sel);
+  if (d.id) pick(d.id);
+  else if (d.alert) post('/api/compose', {dst: '*', kind: 'alert', pri: 1, body: {code: d.alert}});
+  else if (b && (d.reply || draftText.trim())) {
+    post('/api/compose', {dst: b.src, camp: b.camp, kind: 'msg', pri: 1, re: b.id, body: d.reply ? {code: d.reply} : {text: draftText.trim()}});
+    draftText = '';
+  }
+});
+document.addEventListener('input', e => { if (e.target.id === 'rtxt') draftText = e.target.value; });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'rtxt') $('[data-send]').click(); });
+(async () => { world = await (await fetch('/api/world')).json(); poll(); setInterval(drawMap, 450); })();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Wasl · Live demo</title>
+<link rel="stylesheet" href="common.css"><link rel="stylesheet" href="pixel.css" data-skin>
+<style>body{padding:21px;max-width:900px;margin:0 auto}.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:21px}
+.box{padding:18px;margin-bottom:21px}pre{background:var(--ink);color:var(--paper);padding:12px;overflow:auto;margin:9px 0;font-family:var(--mono)}
+p{margin:9px 0;font-size:15px}.links{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}</style></head>
+<body>
+<div class="bar"><span data-brand="3"></span><nav class="top"><a href="index.html">Pitch</a><a href="sim.html">Simulation</a><a href="kit.html">Kit</a><a class="cur" href="live.html">Live demo</a></nav></div>
+<div class="box"><canvas class="px" id="sc"></canvas></div>
+<div class="box">
+  <div data-px="4">The live demo is three machines.</div>
+  <p>Wasl is a phone, a Raspberry Pi in a water truck, and a clinic laptop exchanging messages with no internet between them. That cannot run on a static web page, so here it is two ways.</p>
+  <div class="links"><a class="btn" href="https://github.com/siddharth-vegesna/wasl">Code on GitHub</a><a class="btn" href="sim.html">Network simulation</a></div>
+</div>
+<div class="box">
+  <div data-px="3">Run all three on your laptop</div>
+  <p>Python 3 only. No installs, nothing fetched from the internet.</p>
+  <pre>git clone https://github.com/siddharth-vegesna/wasl.git
+cd wasl
+./scripts/run-local.sh</pre>
+  <p>Then open <b>http://localhost:8081/stage</b>: the phone, the truck and the clinic side by side, with buttons that move the truck in and out of range.</p>
+</div>
+<script src="common.js"></script>
+<script>const s = Scene($('#sc'), 'route'); let i = 0; setInterval(() => s.set({pos: ['camp', 'road', 'town', 'road'][i++ % 4]}), 3500);</script>
+</body></html>

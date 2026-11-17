@@ -1,0 +1,14 @@
+{
+  "note": "Realistic but SIMULATED camp locations and trip times, loosely placed around Liwa / Al Dhafra, UAE.",
+  "region": "Liwa · Empty Quarter edge (simulated)",
+  "town": {"id": "clinic", "name": "Mezaira'a Clinic", "name_ar": "عيادة مزيرعة", "x": 868, "y": 132},
+  "truck": {"id": "truck-7", "name": "Truck 7", "name_ar": "الشاحنة ٧"},
+  "camps": [
+    {"id": "tal-mireb", "name": "Tal Mireb", "name_ar": "تل مرعب", "x": 716, "y": 236, "km_signal": 24, "leg_min": 560},
+    {"id": "bir-hamra", "name": "Bir Hamra", "name_ar": "بئر حمرا", "x": 566, "y": 176, "km_signal": 38, "leg_min": 490},
+    {"id": "umm-ghaf", "name": "Umm Ghaf", "name_ar": "أم غاف", "x": 372, "y": 218, "km_signal": 61, "leg_min": 400},
+    {"id": "qusahwira", "name": "Qusahwira", "name_ar": "قصيويرة", "x": 138, "y": 432, "km_signal": 112, "leg_min": 290},
+    {"id": "al-khis", "name": "Al Khis", "name_ar": "الخيس", "x": 356, "y": 498, "km_signal": 77, "leg_min": 200},
+    {"id": "humar", "name": "Humar", "name_ar": "حُمر", "x": 612, "y": 424, "km_signal": 49, "leg_min": 110}
+  ]
+}

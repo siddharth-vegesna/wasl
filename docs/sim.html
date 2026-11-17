@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wasl · Network simulation</title>
+<link rel="stylesheet" href="common.css"><link rel="stylesheet" href="pixel.css" data-skin>
+<style>
+body{overflow:hidden}
+.bar{height:57px;display:flex;align-items:center;gap:12px;padding:0 18px}
+.bar .sp{flex:1}
+.wrap{display:grid;grid-template-columns:1fr 372px;gap:18px;padding:3px 18px 18px;height:calc(100vh - 57px)}
+.mapbox{position:relative;min-width:0;min-height:0;overflow:hidden;display:grid;place-items:center;background:var(--paper2)}
+#c{image-rendering:pixelated;display:block}
+.clock{position:absolute;left:9px;bottom:9px;padding:6px 9px;background:var(--paper);border:var(--u) solid var(--ink)}
+.clock small{display:block}
+.side{overflow:auto;padding:0 9px 9px 0}
+.side .box{padding:12px;margin-bottom:15px}
+.side .lab{margin-top:0}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:3px 9px;align-items:center;margin-bottom:9px;font-weight:700}
+.ctl input{grid-column:1/-1;width:100%;border:0;padding:0;background:none;accent-color:var(--ink)}
+.kp{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px}
+.k small{display:block;margin-top:3px;line-height:1.3}
+.k.wide{grid-column:1/-1;padding-bottom:9px;border-bottom:1px dashed var(--mute)}
+.k.base{grid-column:1/-1;padding-top:9px;border-top:1px dashed var(--mute)}
+#hist{display:flex;align-items:flex-end;gap:3px;height:72px;border-bottom:var(--u) solid var(--ink)}
+#hist i{flex:1;background:var(--green);min-height:0}
+.ax{display:flex;justify-content:space-between;font-size:11px;color:var(--mute);margin-top:3px}
+.leg{display:grid;grid-template-columns:auto 1fr;gap:6px 9px;align-items:center;font-size:12px}
+.leg i{width:12px;height:12px;border:1px solid var(--ink)}
+.fine{font-size:11.5px;color:var(--mute)}
+</style>
+</head>
+<body>
+<div class="bar"><span data-brand="3"></span><nav class="top"><a href="live.html">Clinic</a><a href="live.html">Stage</a><a class="cur" href="sim.html">Simulation</a><a href="index.html">Pitch</a></nav><div class="sp"></div><span class="tag warn">Simulation, not field data</span></div>
+<div class="wrap">
+  <div class="mapbox box"><canvas id="c"></canvas><div class="clock" id="clock"></div></div>
+  <aside class="side">
+    <div class="box"><div class="lab" data-px="2">Network</div>
+      <div class="ctl"><span>Water trucks</span><output id="oT"></output><input id="iT" type="range" min="1" max="5" value="3"></div>
+      <div class="ctl"><span>Other vehicles carrying Wasl</span><output id="oV"></output><input id="iV" type="range" min="0" max="24" value="0"></div>
+      <div class="ctl"><span>Speed</span><output id="oS"></output><input id="iS" type="range" min="10" max="400" value="90"></div>
+      <button class="btn" id="storm">Sandstorm</button><button class="btn" id="restart">Restart</button></div>
+    <div class="box"><div class="lab" data-px="2">What the desert gets</div><div class="kp" id="kp"></div></div>
+    <div class="box"><div class="lab" data-px="2">Hours to reach town</div><div id="hist"></div><div class="ax"><span>0</span><span>24 h</span><span>48 h</span><span>72 h</span><span>96 h</span><span>5 d+</span></div></div>
+    <div class="box"><div class="lab" data-px="2">Legend</div><div class="leg" id="leg"></div>
+      <p class="fine" style="margin-top:12px">27 invented camps over roughly 250 × 140 km. Trucks at about 40 km/h with random delays and breakdowns. One message per camp every 36 h, 12% of them SOS. Every node that meets another copies bundles and receipts across: the same rule the real nodes run.</p></div>
+  </aside>
+</div>
+<script src="common.js"></script>
+<script>
+const W = 1220, HW = 900, PXKM = 6.4, cv = $('#c'), g = cv.getContext('2d');
+const mul = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const town = {x: 1040, y: 150, R: 130, acks: new Set()};
+const COLORS = [PAL.o, PAL.r, PAL.b, PAL.g, PAL.B];
+let rng, camps, trucks, others, msgs, st, simT, cfg = {trucks: 3, others: 0, speed: 90, storm: false}, fx = [], k = .3, LW = 366, LH = 270, tick = 0;
+const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y), q = (a, p) => a.length ? a.slice().sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor(p * a.length))] : null;
+const fh = m => m == null ? '-' : m < 90 ? Math.round(m) + ' min' : m < 2880 ? (m / 60).toFixed(1) + ' h' : (m / 1440).toFixed(1) + ' d';
+
+// ---------- the model (unchanged rules: every contact copies bundles and receipts both ways) ----------
+function build() {
+  rng = mul(11); camps = [];
+  while (camps.length < 27) {
+    const x = 70 + rng() * 1100, y = 110 + rng() * 720;
+    if (Math.hypot(x - town.x, y - town.y) < 250 || camps.some(c => Math.hypot(c.x - x, c.y - y) < 118)) continue;
+    camps.push({i: camps.length, x, y, msgs: new Set(), acks: new Set(), pulse: 0});
+  }
+  town.acks = new Set(); msgs = []; simT = 0; fx = [];
+  fleet(); st = stats();
+  for (let i = 0; i < 3 * 720; i++) step(2);       // 3 days to fill the trip history the promises are based on
+  st = stats();
+  for (let i = 0; i < 12 * 720; i++) step(2);      // then 12 measured days, so the numbers mean something on open
+  camps.forEach(c => c.pulse = 0); fx = [];
+}
+function stats() { return {lat: [], sos: [], rt: [], kept: 0, prom: 0, n: 0}; }
+function fleet() {
+  const K = cfg.trucks, sorted = camps.slice().sort((a, b) => Math.atan2(a.y - town.y, a.x - town.x) - Math.atan2(b.y - town.y, b.x - town.x));
+  trucks = [];
+  for (let n = 0; n < K; n++) {
+    let rest = sorted.filter((c, i) => Math.floor(i * K / sorted.length) === n), cur = town, tour = [];
+    while (rest.length) { rest.sort((a, b) => d(cur, a) - d(cur, b)); cur = rest.shift(); tour.push(cur); }
+    trucks.push({truck: true, pts: [town].concat(tour, [town]), seg: 0, x: town.x, y: town.y, dwell: 60 + n * 420, msgs: new Set(), acks: new Set(), hist: {}, left: {}, col: COLORS[n]});
+  }
+  others = [];
+  for (let i = 0; i < cfg.others; i++) { const c = camps[Math.floor(rng() * camps.length)];
+    others.push({x: c.x, y: c.y, at: c, to: null, dwell: rng() * 600, msgs: new Set(), acks: new Set()}); }
+}
+function meet(car, camp) {
+  for (const m of camp.acks) car.acks.add(m);
+  for (const m of car.acks) { camp.acks.add(m); if (m.camp === camp.i && !m.ackT) { m.ackT = simT; st.rt.push(simT - m.t0); camp.pulse = 1; } }
+  for (const m of camp.msgs) if (camp.acks.has(m)) camp.msgs.delete(m);
+  for (const m of car.msgs) if (car.acks.has(m)) car.msgs.delete(m);
+  for (const m of camp.msgs) {
+    car.msgs.add(m);
+    if (car.truck && m.camp === camp.i && !m.promise) {   // the receipt: a delivery promise from this truck's own history
+      const h = car.hist[camp.i] || [];
+      let rem = 0, on = false;
+      for (let s = 0; s < car.pts.length - 1; s++) { if (car.pts[s] === camp) on = true; if (on) rem += d(car.pts[s], car.pts[s + 1]) / 4.2 + 30; }
+      m.promise = simT + car.dwell + (h.length >= 5 ? q(h, .9) : rem * 1.35) * (cfg.storm ? 3 : 1);   // storm warning on board: promise less
+    }
+  }
+  for (const m of car.msgs) camp.msgs.add(m);
+  for (const a of camp.acks) if (a.ackT && simT - a.ackT > 3000) camp.acks.delete(a);
+}
+function dock(car) {
+  for (const m of car.msgs) {
+    if (!m.delT) { m.delT = simT; st.n++; st.lat.push(simT - m.t0); if (m.sos) st.sos.push(simT - m.t0);
+      if (m.promise) { st.prom++; if (simT <= m.promise) st.kept++; }
+      fx.push({t: 1, c: m.sos ? PAL.r : PAL.B}); }
+    town.acks.add(m);
+  }
+  car.msgs.clear();
+  for (const m of town.acks) { if (m.ackT) town.acks.delete(m); else car.acks.add(m); }
+  for (const m of car.acks) if (m.ackT) car.acks.delete(m);
+  if (car.truck) { for (const i in car.left) { (car.hist[i] = car.hist[i] || []).push(simT - car.left[i]); if (car.hist[i].length > 30) car.hist[i].shift(); } car.left = {}; }
+}
+function move(o, tgt, v, dt) {
+  const dd = d(o, tgt), s = v * dt * (cfg.storm ? .32 : 1);
+  if (dd <= s) { o.x = tgt.x; o.y = tgt.y; return true; }
+  o.x += (tgt.x - o.x) / dd * s; o.y += (tgt.y - o.y) / dd * s; return false;
+}
+function step(dt) {
+  simT += dt;
+  for (const c of camps) if (rng() < dt / (36 * 60)) { const m = {camp: c.i, t0: simT, sos: rng() < .12}; c.msgs.add(m); msgs.push(m); }
+  for (const t of trucks) {
+    if (t.dwell > 0) { t.dwell -= dt; continue; }
+    const tgt = t.pts[t.seg + 1];
+    if (move(t, tgt, t.v || 4.2, dt)) { t.seg++;
+      if (tgt === town) { dock(t); t.seg = 0; t.dwell = 600; }
+      else {   // real trips vary: loading time, soft sand, the odd breakdown
+        t.dwell = 25 + rng() * 30 + (rng() < .06 ? 120 + rng() * 240 : 0); t.v = 4.2 * (.75 + rng() * .5);
+        meet(t, tgt); t.left[tgt.i] = simT + t.dwell; } }
+  }
+  for (const o of others) {
+    if (o.dwell > 0) { o.dwell -= dt; continue; }
+    if (!o.to) { if (rng() < .22) o.to = town; else { const near = camps.filter(c => c !== o.at && d(c, o) < 380); o.to = near[Math.floor(rng() * near.length)] || town; } }
+    if (move(o, o.to, 5.2, dt)) { if (o.to === town) dock(o); else { meet(o, o.to); o.at = o.to; } o.to = null; o.dwell = 120 + rng() * 700; }
+  }
+  if (msgs.length > 4000) msgs = msgs.filter(m => !m.ackT);
+}
+
+// ---------- drawing: a low-res canvas shown at a whole-number scale, every mark placed on the pixel grid ----------
+let specks = [];
+function fit() {
+  const box = cv.parentElement.getBoundingClientRect(), S = box.width > 1100 ? 3 : 2;
+  LW = Math.floor(box.width / S); LH = Math.floor(box.height / S); k = Math.min(LW / W, LH / HW);
+  cv.width = LW; cv.height = LH; cv.style.width = LW * S + 'px'; cv.style.height = LH * S + 'px';
+  const r = mul(5); specks = Array.from({length: Math.floor(LW * LH / 260)}, () => [Math.floor(r() * LW), Math.floor(r() * LH), r() < .3]);
+}
+const P = o => [Math.round(o.x * k), Math.round(o.y * k)];
+function dots(a, b, col, gap = 4) {
+  const [ax, ay] = P(a), [bx, by] = P(b), n = Math.max(1, Math.hypot(bx - ax, by - ay)); g.fillStyle = col;
+  for (let s = 0; s < n; s += gap) g.fillRect(Math.round(ax + (bx - ax) * s / n), Math.round(ay + (by - ay) * s / n), 1, 1);
+}
+function frameBox(x, y, r, col) { g.fillStyle = col; g.fillRect(x - r, y - r, 2 * r + 1, 1); g.fillRect(x - r, y + r, 2 * r + 1, 1); g.fillRect(x - r, y - r, 1, 2 * r + 1); g.fillRect(x + r, y - r, 1, 2 * r + 1); }
+function draw() {
+  tick++;
+  g.fillStyle = PAL.c; g.fillRect(0, 0, LW, LH);
+  for (const [x, y, dash] of specks) { g.fillStyle = PAL.s; g.fillRect(x, y, dash ? 3 : 1, 1); }
+  const [tx, ty] = P(town), R = Math.round(town.R * k);
+  g.fillStyle = PAL.g;                                          // coverage: a dithered disc, solid at the rim
+  for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) { const dd = x * x + y * y; if (dd <= R * R && (dd > (R - 2) * (R - 2) ? (x + y) % 2 === 0 : (x % 3 === 0 && y % 3 === 0))) g.fillRect(tx + x, ty + y, 1, 1); }
+  for (const t of trucks) for (let i = 0; i < t.pts.length - 1; i++) dots(t.pts[i], t.pts[i + 1], t.col, 5);
+  for (const c of camps) {
+    const [x, y] = P(c);
+    if (c.pulse > 0) { frameBox(x, y - 1, 5 + Math.floor((1 - c.pulse) * 4) * 2, PAL.g); c.pulse -= .04; }
+    blit(g, 'tentmini', x - 3, y - 3);
+    let n = 0; for (const m of c.msgs) { if (m.camp !== c.i || m.delT) continue; g.fillStyle = m.sos ? PAL.r : PAL.B; g.fillRect(x - 5 + (n % 5) * 3, y - 7 - Math.floor(n / 5) * 3, 2, 2); if (++n >= 10) break; }
+  }
+  blit(g, 'clinic', tx - 8, ty - 9); ptext(g, 'TOWN · SIGNAL', tx - 34, ty + 10, PAL.G);
+  for (const f of fx) { frameBox(tx, ty - 1, 10 + Math.floor((1 - f.t) * 5) * 3, f.c); f.t -= .08; }
+  fx = fx.filter(f => f.t > 0);
+  for (const o of others) { const [x, y] = P(o); g.fillStyle = PAL.k; g.fillRect(x - 2, y - 1, 4, 3); g.fillStyle = o.msgs.size ? PAL.y : PAL.w; g.fillRect(x - 1, y, 2, 1); }
+  for (const t of trucks) {
+    const [x, y] = P(t);
+    g.fillStyle = PAL.k; g.fillRect(x - 5, y - 3, 11, 6); g.fillRect(x - 4, y + 3, 2, 1); g.fillRect(x + 2, y + 3, 2, 1);
+    g.fillStyle = PAL.w; g.fillRect(x - 4, y - 2, 6, 4); g.fillStyle = t.col; g.fillRect(x - 4, y, 6, 1); g.fillRect(x + 3, y - 2, 2, 4);
+    if (t.msgs.size) { const s = String(t.msgs.size); g.fillStyle = PAL.k; g.fillRect(x - 5, y - 13, s.length * 6 + 3, 9); ptext(g, s, x - 3, y - 12, PAL.w); }
+  }
+  if (cfg.storm) {
+    g.fillStyle = PAL.s; for (let i = 0; i < LW * LH / 1100; i++) g.fillRect((i * 97 + tick * 5) % (LW + 20) - 10, (i * 61 + Math.floor(tick / 3)) % LH, 6, 1);
+    if (tick % 16 < 10) { g.fillStyle = PAL.k; g.fillRect(4, 4, 62, 11); ptext(g, 'SANDSTORM', 7, 6, PAL.y); }
+  }
+}
+function hud() {
+  const day = Math.floor(simT / 1440) + 1, hr = Math.floor(simT / 60) % 24, mn = Math.floor(simT) % 60;
+  H('#clock').html = px(`Day ${day} · ${pad(hr)}:${pad(mn)}`, 2) + `<small>${cfg.storm ? 'Vehicles at one third speed' : '1 second = ' + cfg.speed + ' minutes'}</small>`;
+  const km = camps.map(c => (d(c, town) - town.R) / PXKM), avg = km.reduce((a, b) => a + b, 0) / km.length;
+  const cell = (v, label, cls = '', s = 3, col = '') => `<div class="k ${cls}"><div style="color:${col}">${px(v, s)}</div><small>${label}</small></div>`;
+  H('#kp').html = cell(st.prom ? Math.round(100 * st.kept / st.prom) + '%' : '-', 'of delivery promises kept, measured. The receipt promises 90%.', 'wide', 5, 'var(--green)') +
+    cell(fh(q(st.lat, .5)), 'median time to reach town') + cell(fh(q(st.lat, .9)), '9 in 10 arrive within') +
+    cell(fh(q(st.sos, .5)), 'median for an SOS') + cell(fh(q(st.rt, .5)), 'until the sender holds a "delivered" receipt') +
+    cell(st.n, 'messages delivered') + cell(msgs.filter(m => !m.delT).length, 'waiting or in transit') +
+    cell(Math.round(avg) + ' km', `Without Wasl: the average camp's nearest signal. About ${Math.round(avg / 4)} hours on foot, farthest ${Math.round(Math.max(...km))} km, and no way to know anyone heard.`, 'base', 4, 'var(--red)');
+  const bins = new Array(24).fill(0); st.lat.forEach(m => bins[Math.min(23, Math.floor(m / 60 / 6))]++);
+  const mx = Math.max(1, ...bins);
+  H('#hist').html = bins.map((b, i) => `<i style="height:${Math.round(b / mx * 24) * 3}px;background:${i < 4 ? 'var(--green)' : i < 12 ? 'var(--amber)' : 'var(--red)'}"></i>`).join('');
+}
+let last = 0, acc = 0, dacc = 0;
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000 || 0); last = now;
+  let sim = dt * cfg.speed; while (sim > 0) { const s = Math.min(2, sim); step(s); sim -= s; }
+  if ((dacc += dt) > .08) { dacc = 0; draw(); }               // 12 frames a second: stepped, like the sprites
+  if ((acc += dt) > .3) { acc = 0; hud(); }
+  requestAnimationFrame(frame);
+}
+function ui() { $('#oT').textContent = cfg.trucks; $('#oV').textContent = cfg.others; $('#oS').textContent = cfg.speed + ' min/s'; $('#storm').classList.toggle('on', cfg.storm); }
+$('#iT').oninput = e => { cfg.trucks = +e.target.value; ui(); build(); };
+$('#iV').oninput = e => { cfg.others = +e.target.value; ui(); build(); };
+$('#iS').oninput = e => { cfg.speed = +e.target.value; ui(); };
+$('#storm').onclick = () => { cfg.storm = !cfg.storm; ui(); };
+$('#restart').onclick = () => build();
+addEventListener('resize', fit);
+$('#leg').innerHTML = [[PAL.g, 'Town and its mobile coverage'], [PAL.s, 'Camp with no signal'], [PAL.r, 'SOS waiting'], [PAL.B, 'Message waiting'], [PAL.w, 'Truck. The number is bundles on board'], [PAL.y, 'Other vehicle carrying bundles']]
+  .map(([c, t]) => `<i style="background:${c}"></i><span>${t}</span>`).join('') + `<i style="background:none;border:var(--u) solid var(--green)"></i><span>Green frame: a receipt just got home</span>`;
+ui(); build(); fit(); draw(); hud(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>

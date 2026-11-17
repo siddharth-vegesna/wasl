@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wasl · Stage</title>
+<link rel="stylesheet" href="/common.css"><link rel="stylesheet" href="/pixel.css" data-skin>
+<style>
+body{overflow:hidden}
+.bar{height:57px;display:flex;align-items:center;gap:12px;padding:0 18px}
+.bar .sp{flex:1}
+.stage{display:grid;grid-template-columns:auto 1fr;gap:21px;padding:3px 21px 21px;height:calc(100vh - 57px)}
+.win{display:flex;flex-direction:column;min-height:0;min-width:0}
+.win .ttl{display:flex;align-items:center;gap:9px;padding:6px 9px;background:var(--ink);color:var(--paper);flex:none}
+.win .ttl i{width:9px;height:9px;background:var(--paper)}
+.win .ttl i+i{background:var(--amber)}.win .ttl i+i+i{background:var(--green)}
+.win .ttl span{margin-inline-start:6px}
+.win iframe{flex:1;width:100%;border:0;display:block;min-height:0;background:var(--bg)}
+.phone{height:100%;aspect-ratio:9/18.4;max-width:410px}
+.right{display:grid;grid-template-rows:minmax(300px,45%) 1fr;gap:21px;min-width:0;min-height:0}
+</style>
+</head>
+<body>
+<div class="bar">
+  <span data-brand="3"></span>
+  <nav class="top"><a href="/clinic">Clinic</a><a class="cur" href="/stage">Stage</a><a href="/sim">Simulation</a><a href="/pitch">Pitch</a></nav>
+  <div class="sp"></div>
+  <button class="btn" id="reset">Reset everything</button>
+</div>
+<div class="stage">
+  <div class="win box phone"><div class="ttl"><i></i><i></i><i></i><span data-px="2">Phone · camp, no signal</span></div><iframe id="fPhone"></iframe></div>
+  <div class="right">
+    <div class="win box"><div class="ttl"><i></i><i></i><i></i><span data-px="2">Raspberry Pi · in the water truck</span></div><iframe id="fTruck"></iframe></div>
+    <div class="win box"><div class="ttl"><i></i><i></i><i></i><span data-px="2">Laptop · clinic in town</span></div><iframe id="fClinic"></iframe></div>
+  </div>
+</div>
+<script src="/common.js"></script>
+<script>
+const Q = new URLSearchParams(location.search);
+const truck = Q.get('truck') || `http://${location.hostname}:8080`, clinic = Q.get('clinic') || location.origin;
+const who = Q.get('who') || 'Salem,umm-ghaf', bare = BARE ? '&bare' : '';
+const load = extra => {
+  $('#fPhone').src = `${truck}/app?auto=${encodeURIComponent(who)}&demo=1${bare}${extra || ''}`;
+  $('#fTruck').src = `${truck}/truck${BARE ? '?bare' : ''}`;
+  $('#fClinic').src = `${clinic}/clinic${BARE ? '?bare' : ''}`;
+};
+$('#reset').onclick = async () => {
+  if (!confirm('Wipe the truck, the clinic and the phone, and start the demo fresh?')) return;
+  // stop the phone first: a live phone would faithfully re-deliver its old messages to the freshly wiped truck
+  $('#fPhone').src = 'about:blank'; await new Promise(r => setTimeout(r, 400));
+  const p = u => fetch(u + '/api/admin/reset', {method: 'POST', body: '{}'}).catch(() => {});
+  await Promise.all([p(truck), p(clinic)]);
+  load('&wipe=' + Date.now());
+};
+load();
+</script>
+</body>
+</html>

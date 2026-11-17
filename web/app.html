@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#f4e9d0">
+<title>Wasl</title>
+<link rel="stylesheet" href="/common.css"><link rel="stylesheet" href="/pixel.css" data-skin>
+<style>
+#app{max-width:440px;margin:0 auto;min-height:100vh;background:var(--bg);padding-bottom:36px;position:relative;border-inline:var(--u) solid var(--ink)}
+.hud{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:12px 15px 9px}
+.who{font-size:12px;color:var(--mute);margin-top:3px}
+#scene{border-top:var(--u) solid var(--ink);border-bottom:var(--u) solid var(--ink)}
+.dlg{margin:-18px 15px 0;position:relative;padding:15px 12px 12px;min-height:90px}
+.dlg p{margin-top:9px;font-size:12.5px}
+.dlg .tag{position:absolute;top:-12px;inset-inline-start:9px;margin:0}
+.dlg .cur{position:absolute;bottom:6px;inset-inline-end:9px;width:9px;height:9px;background:var(--ink);animation:blink 1s steps(1) infinite}
+main{padding:0 15px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tile{flex-direction:column;gap:9px;padding:12px 3px 9px;min-height:111px;text-align:center}
+.tile.wide{grid-column:1/-1;flex-direction:row;justify-content:flex-start;min-height:0;padding:9px 12px;gap:12px}
+.alert{display:flex;gap:12px;align-items:center;padding:9px 12px;margin-top:18px;background:var(--yellow)}
+.alert .t{flex:1}
+.card{padding:12px;margin-bottom:18px}
+.chead{display:flex;gap:12px;align-items:center}
+.chead .t{flex:1;min-width:0}
+.chead small{display:block;margin-top:3px}
+.sw{display:inline-block;width:9px;height:9px;border:1px solid var(--ink);vertical-align:-1px}
+.spk{padding:6px;flex:none}
+.say{margin-top:12px;padding:9px 12px;border:var(--u) solid var(--ink)}
+.say.wait{background:var(--yellow)}.say.go{background:var(--green);color:var(--paper)}.say.ok{background:var(--teal);color:var(--paper)}
+.jr{display:flex;align-items:flex-start;margin:15px 0 0}
+.jn{flex:none;width:66px;text-align:center;font-size:11px;color:var(--mute)}
+.jn .n{width:51px;height:51px;margin:0 auto 6px;display:grid;place-items:center;border:var(--u) dashed var(--mute)}
+.jn .n img{opacity:.35}
+.jn.lit{color:var(--ink)}
+.jn.lit .n{border-style:solid;border-color:var(--ink);background:var(--paper)}
+.jn.lit .n img{opacity:1}
+.jl{flex:1;position:relative;margin-top:24px;border-top:var(--u) dotted var(--mute)}
+.jl.full{border-top-style:solid;border-top-color:var(--ink)}
+.jl.wait{border-top-style:dashed;border-top-color:var(--amber);animation:blink 1s steps(1) infinite}
+.jl.go::after{content:"";position:absolute;top:-7.5px;width:12px;height:12px;background:var(--amber);border:var(--u) solid var(--ink);animation:run 1.6s steps(7) infinite}
+@keyframes run{from{inset-inline-start:0}to{inset-inline-start:calc(100% - 12px)}}
+.eta{margin-top:9px;font-size:12px;padding-top:9px;border-top:1px dashed var(--mute)}
+.photo{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:12px;flex-wrap:wrap}
+.reply{display:flex;gap:9px;align-items:flex-start;padding:9px;margin-top:15px;background:var(--green);color:var(--paper)}
+.reply .t{flex:1}.reply small{color:var(--paper);opacity:.8;display:block;margin-top:3px}
+.empty{padding:21px;text-align:center;color:var(--mute);border:var(--u) dashed var(--mute)}
+#veil{position:fixed;inset:0;background:rgba(29,26,22,.6);display:none;z-index:5}
+#sheet{position:fixed;left:50%;bottom:0;width:100%;max-width:440px;transform:translate(-50%,100%);transition:transform .2s steps(4);z-index:6;background:var(--bg);border-top:var(--u) solid var(--ink);padding:15px 15px 24px}
+.open #veil{display:block}.open #sheet{transform:translate(-50%,0)}
+.shead{display:flex;align-items:center;gap:12px}
+.chips{display:flex;gap:3px}
+.chip{flex:1;flex-direction:column;gap:6px;padding:9px 3px;font-size:12px;text-align:center}
+#txt{width:100%;margin-top:15px;resize:none}
+.thumb{height:42px;image-rendering:pixelated}
+#hold{position:relative;overflow:hidden;width:calc(100% - var(--u)*2);margin-top:18px;padding:18px;user-select:none;-webkit-user-select:none;touch-action:none}
+#hold i{position:absolute;inset:0 auto 0 0;width:0;background:var(--ink);opacity:.4}
+#hold.holding i{width:100%;transition:width .85s steps(9)}
+#hold span{position:relative}
+#rcpt{position:fixed;inset:0;z-index:20;display:none;place-items:center;padding:24px;background:rgba(29,26,22,.78)}
+#rcpt.show{display:grid}
+.tk{position:relative;width:100%;max-width:366px;padding:18px;animation:pop .3s steps(4)}
+.tk .perf{border-top:var(--u) dashed var(--ink);margin:15px -18px 12px}
+.tk .big{margin:12px 0 0}
+.tk .who2{max-width:62%}
+.stamp{position:absolute;inset-inline-end:12px;top:12px;padding:6px 9px;border:var(--u) solid var(--green);outline:var(--u) solid var(--green);outline-offset:var(--u);color:var(--green);text-align:center;background:var(--paper);animation:stampin .3s .45s steps(3) both}
+@keyframes stampin{from{transform:scale(2.4);opacity:0}}
+#setup{position:fixed;inset:0;z-index:9;background:var(--bg);display:none;align-items:center;justify-content:center;padding:21px}
+#setup .in{width:100%;max-width:400px}
+#setup input{width:100%}
+.camps{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="hud"><div><span data-brand="3"></span><div class="who" id="who"></div></div><button class="btn" id="langBtn"></button></header>
+  <canvas id="scene" class="px"></canvas>
+  <div class="dlg box"><span class="tag" id="linkPill"></span><div id="linkTitle"></div><p id="linkSub"></p><i class="cur"></i></div>
+  <main>
+    <div id="alerts"></div>
+    <div class="lab" id="hNeed"></div>
+    <div class="grid" id="grid"></div>
+    <div class="lab" id="hMsgs"></div>
+    <div id="list"></div>
+  </main>
+</div>
+<div id="veil"></div>
+<div id="sheet"><div id="sheetBody"></div></div>
+<div id="rcpt"><div class="tk box"><div class="stamp"><div id="rcAr"></div><div id="rcOk"></div></div><div id="rcK"></div><div class="big who2" id="rcH"></div><div class="big" id="rcS"></div><div class="perf"></div><p id="rcE"></p><small id="rcT"></small></div></div>
+<div id="setup"><div class="in">
+  <span data-brand="6"></span>
+  <p style="margin:15px 0">Messages that ride the water truck, with a receipt.<br>الرسائل تسافر مع شاحنة الماء، ومعها وصل.</p>
+  <div class="lab">Your name · اسمك</div><input id="sName" value="Salem">
+  <div class="lab">Your camp · مخيمك</div><div class="camps" id="sCamps"></div>
+</div></div>
+<input type="file" id="file" accept="image/*" capture="environment" hidden>
+<script src="/common.js"></script>
+<script>
+const Q = new URLSearchParams(location.search), NS = 'wasl' + (Q.get('p') || '');
+const raw = {get: k => { try { return localStorage.getItem(NS + '.' + k); } catch (e) { return null; } },
+             set: (k, v) => { try { localStorage.setItem(NS + '.' + k, v); return true; } catch (e) { return false; } }};
+if (Q.get('wipe') && raw.get('wiped') !== Q.get('wipe')) {       // stage "reset everything"
+  try { Object.keys(localStorage).filter(k => k.startsWith(NS + '.')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  raw.set('wiped', Q.get('wipe'));
+}
+const LS = {get: (k, d) => { const v = raw.get(k); if (v == null) return d; try { return JSON.parse(v); } catch (e) { return d; } },
+            set: (k, v) => raw.set(k, JSON.stringify(v))};
+let me = LS.get('me', null), B = LS.get('b', {}), E = LS.get('e', {}), FC = LS.get('fc', null), PR = LS.get('pr', {});
+let world = LS.get('world', null), lang = LS.get('lang', 'en'), link = null, busy = false, fails = 0, draft = null;
+const scene = Scene($('#scene'), 'phone');
+const CHUNK = 8192, rid = () => [...crypto.getRandomValues(new Uint8Array(8))].map(x => pad(x.toString(16))).join('');
+// merge with whatever is on disk first, so a second open tab can never erase a queued message
+const merge = () => { B = Object.assign(LS.get('b', {}), B); E = Object.assign(LS.get('e', {}), E); };
+const save = () => { merge(); LS.set('b', B); LS.set('e', E); LS.set('fc', FC); LS.set('pr', PR); };
+addEventListener('storage', () => { merge(); if (me && !draft) render(); });
+
+const T = {
+en: {noSignal: 'No signal', inRange: '{n} in range', weakPill: 'Weak link', noTruck: 'No truck nearby.', truckHere: '{n} is here.',
+  syncing: 'Sending the most urgent first…', synced: 'Everything is on board.', weak: 'Weak link. Urgent messages go first.',
+  nextIn: 'Next truck in about {d}', nextBy: '9 times in 10 it comes within {d}', anytime: 'Truck expected any time now',
+  late: 'The truck is late. Your messages are safe on this phone.', need: 'What do you need?', msgs: 'Your messages',
+  empty: 'Nothing sent yet. Tap a picture above.', other: 'Send a message', wait: 'Waiting for the truck.',
+  carried: '{n} has your message. Stay where you are.', deliv: 'The clinic has your message.', seenH: 'The clinic has read your message.',
+  replyH: 'The clinic answered.', toClinic: 'Reaches the clinic', seen: 'Read at the clinic {t}', answer: 'The answer comes back with the truck.',
+  eta: 'likely by {a} · 9 of 10 trips arrive by {b}', basis: 'from {n} past trips', pWait: 'waiting for the truck',
+  pPart: '{p}% sent. Continues when the truck is back.', pGo: '{p}% sending…', pDone: 'on the truck', hold: 'Hold to send',
+  sev: 'How serious?', people: 'How many people?', words: 'A few words (optional)', addPhoto: 'Add a photo', sample: 'Sample photo',
+  alertFrom: 'Alert from the clinic', fromClinic: 'From the clinic', write: 'Write your message', jPhone: 'Phone', jTruck: 'Truck', jClinic: 'Clinic',
+  rcTitle: 'Receipt', rcHas: '{n} has your message', rcStay: 'Stay where you are.', rcTap: 'Tap to close', storm: 'sandstorm warning, window widened'},
+ar: {noSignal: 'لا توجد إشارة', inRange: '{n} قريبة', weakPill: 'إشارة ضعيفة', noTruck: 'لا توجد شاحنة قريبة.', truckHere: '{n} هنا.',
+  syncing: 'إرسال الأهم أولاً…', synced: 'كل شيء على متن الشاحنة.', weak: 'الإشارة ضعيفة. الرسائل العاجلة أولاً.',
+  nextIn: 'الشاحنة القادمة بعد حوالي {d}', nextBy: '٩ مرات من ١٠ تصل خلال {d}', anytime: 'الشاحنة متوقعة في أي لحظة',
+  late: 'الشاحنة متأخرة. رسائلك محفوظة في هذا الهاتف.', need: 'ماذا تحتاج؟', msgs: 'رسائلك',
+  empty: 'لم ترسل شيئاً بعد. اضغط على صورة في الأعلى.', other: 'أرسل رسالة', wait: 'بانتظار الشاحنة.',
+  carried: '{n} استلمت رسالتك. ابقَ في مكانك.', deliv: 'العيادة استلمت رسالتك.', seenH: 'العيادة قرأت رسالتك.',
+  replyH: 'العيادة ردّت عليك.', toClinic: 'تصل إلى العيادة', seen: 'قُرئت في العيادة {t}', answer: 'الرد يعود مع الشاحنة.',
+  eta: 'غالباً قبل {a} · ٩ من ١٠ رحلات تصل قبل {b}', basis: 'من {n} رحلة سابقة', pWait: 'بانتظار الشاحنة',
+  pPart: 'أُرسل {p}٪. يُستكمل عند عودة الشاحنة.', pGo: 'جارٍ الإرسال {p}٪…', pDone: 'على متن الشاحنة', hold: 'اضغط مطولاً للإرسال',
+  sev: 'ما مدى الخطورة؟', people: 'كم شخصاً؟', words: 'بضع كلمات (اختياري)', addPhoto: 'أضف صورة', sample: 'صورة تجريبية',
+  alertFrom: 'تنبيه من العيادة', fromClinic: 'من العيادة', write: 'اكتب رسالتك', jPhone: 'الهاتف', jTruck: 'الشاحنة', jClinic: 'العيادة',
+  rcTitle: 'وصل استلام', rcHas: '{n} استلمت رسالتك', rcStay: 'ابقَ في مكانك.', rcTap: 'اضغط للإغلاق', storm: 'تحذير من عاصفة رملية، المدة أطول'}};
+const t = (k, p) => { let s = (T[lang] || T.en)[k] || T.en[k] || k; for (const x in p || {}) s = s.replace('{' + x + '}', p[x]); return s; };
+const tname = n => (lang === 'ar' && world && world.truck && n === world.truck.name) ? world.truck.name_ar : n;
+
+async function api0(method, path, body, ms = 2500, bin = false) {
+  const c = new AbortController(), tm = setTimeout(() => c.abort(), ms);
+  try {
+    const r = await fetch(path, {method, signal: c.signal, cache: 'no-store',
+      headers: Object.assign({'X-Wasl-Role': 'phone'}, body && !bin ? {'Content-Type': 'application/json'} : {}),
+      body: body ? (bin ? body : JSON.stringify(body)) : undefined});
+    if (!r.ok) throw new Error('http ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(tm); }
+}
+// a lossy link drops single requests: retry each one a few times before giving the contact up
+async function api(...a) { for (let i = 0; ; i++) { try { return await api0(...a); } catch (e) { if (i >= 3) throw e; await new Promise(r => setTimeout(r, 120)); } } }
+
+// store receipts; a brand-new custody receipt for one of my messages gets the full ceremony
+function take(evs) {
+  for (const e of evs || []) {
+    const fresh = !E[e.id]; E[e.id] = e;
+    const b = B[e.bundle];
+    if (fresh && e.type === 'custody' && b && b.src === me.id && b.kind !== 'photo') showReceipt(b, e);
+  }
+}
+let rcTimer = null;
+function showReceipt(b, e) {
+  const x = e.extra;
+  $('#rcAr').innerHTML = px('وصل', 4); $('#rcOk').innerHTML = px('OK ✓', 2);
+  $('#rcK').innerHTML = px(t('rcTitle') + ' · ' + hm(e.t), 2);
+  $('#rcH').innerHTML = px(t('rcHas', {n: tname(e.node_name)}), 2);
+  $('#rcS').innerHTML = px(t('rcStay'), 4);
+  $('#rcE').textContent = x ? t('toClinic') + ': ' + t('eta', {a: when(x.eta50, lang), b: when(x.eta90, lang)}) : '';
+  $('#rcT').textContent = t('rcTap');
+  const el = $('#rcpt'); el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  clearTimeout(rcTimer); rcTimer = setTimeout(() => el.classList.remove('show'), 7000);
+  if (navigator.vibrate) navigator.vibrate([60, 40, 160]);
+}
+
+// ---------- sync: summary, then bundles in priority order, then resumable photo chunks ----------
+async function syncOnce() {
+  const have = Object.values(B).map(b => ({id: b.id, dst: b.dst, pri: b.pri, created: b.created}));
+  const res = await api('POST', '/api/sync', {node: me, time: Date.now() / 1000, have, ev_have: Object.keys(E),
+    events: Object.values(E).filter(e => e.node === me.id), fresh: !LS.get('synced', false)});
+  LS.set('synced', true);
+  for (const b of res.bundles || []) if (!B[b.id]) {
+    B[b.id] = b;
+    if (b.dst === me.id) { const id = b.id + '.' + me.id + '.delivered'; E[id] = {id, bundle: b.id, node: me.id, node_name: me.name, role: 'phone', type: 'delivered', t: Date.now() / 1000}; }
+    if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+  }
+  take(res.events);
+  if (res.forecast) FC = res.forecast;
+  save(); render();
+  // receipts go back before anything bulky: tell the truck right away what just reached this phone
+  const got = (res.bundles || []).map(b => E[b.id + '.' + me.id + '.delivered']).filter(Boolean);
+  if (got.length) await api('POST', '/api/sync', {node: me, time: Date.now() / 1000, have: have.concat(got.map(e => ({id: e.bundle, dst: me.id}))), ev_have: Object.keys(E), events: got});
+  for (const id of res.want || []) {
+    const b = B[id]; if (!b) continue;
+    const r = await api('POST', '/api/bundles', {node: me, bundles: [b]});
+    take(r.events); save(); render();
+    if (b.blob_size) await upload(b);
+  }
+}
+async function upload(b) {
+  const s = atob(raw.get('blob.' + b.id) || ''), bytes = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
+  let have = (await api('GET', '/api/blob/' + b.id + '/have')).have;
+  while (have < bytes.length) {
+    const r = await api('POST', '/api/blob/' + b.id + '?offset=' + have, bytes.slice(have, have + CHUNK), 5000, true);
+    have = r.have; PR[b.id] = have / bytes.length;
+    take(r.events); save(); render();
+  }
+}
+async function tick() {
+  if (me) {
+    try {
+      const h = await api0('GET', '/api/hello', null, 1500);
+      fails = 0; link = h; busy = true; sky();
+      await syncOnce();
+    } catch (e) { if (++fails >= 2) link = null; }
+    busy = false; sky();
+  }
+  setTimeout(tick, fails === 1 ? 300 : 1200);
+}
+
+// ---------- views ----------
+function nextTruck() {
+  if (!FC || !FC.last_visit || !FC.gap_p50) return '';
+  const now = Date.now() / 1000, a = FC.last_visit + FC.gap_p50 * 3600, b = FC.last_visit + FC.gap_p90 * 3600;
+  if (now < a) return t('nextIn', {d: dur(a - now, lang)}) + ' · ' + t('nextBy', {d: dur(b - now, lang)});
+  if (now < b) return t('anytime') + ' · ' + t('nextBy', {d: dur(b - now, lang)});
+  return t('late');
+}
+function type(el, text, s) {                    // dialog text arrives a word at a time
+  if (el.__t === text + lang) return; el.__t = text + lang; clearInterval(el.__iv);
+  const words = text.split(' '); let i = 0;
+  el.__iv = setInterval(() => { el.innerHTML = px(words.slice(0, ++i).join(' '), s); if (i >= words.length) clearInterval(el.__iv); }, 70);
+}
+function sky() {
+  const weak = link && link.link === 'weak';
+  scene.set({on: !!link, weak: !!weak});
+  const pill = $('#linkPill');
+  pill.className = 'tag ' + (link ? (weak ? 'warn' : 'ok') : 'bad');
+  pill.innerHTML = '<i></i>' + esc(link ? (weak ? t('weakPill') : t('inRange', {n: tname(link.name)})) : t('noSignal'));
+  type($('#linkTitle'), link ? t('truckHere', {n: tname(link.name)}) : t('noTruck'), 3);
+  $('#linkSub').textContent = link ? (weak ? t('weak') : busy ? t('syncing') : t('synced')) : nextTruck();
+}
+function view(b) {
+  const ev = Object.values(E).filter(e => e.bundle === b.id).sort((x, y) => x.t - y.t);
+  return {custody: ev.find(e => e.type === 'custody'), delivered: ev.find(e => e.type === 'delivered'), seen: ev.find(e => e.type === 'seen'),
+    replies: Object.values(B).filter(x => x.re === b.id && x.src !== me.id).sort((x, y) => x.created - y.created),
+    photos: Object.values(B).filter(x => x.re === b.id && x.kind === 'photo')};
+}
+const spk = text => `<button class="btn spk" data-say="${esc(text)}">${sp('speaker', 2)}</button>`;
+function replyHtml(r) {
+  const txt = titleOf(r, lang);
+  return `<div class="reply box flat">${ico(r, 2)}<div class="t">${px(txt, 2)}<small>${esc(r.src_name)} · ${when(r.created, lang)}</small></div>${spk(txt)}</div>`;
+}
+function card(b) {
+  const v = view(b), sv = sevOf(b), title = b.kind === 'msg' ? (b.body.text || t('other')) : titleOf(b, lang);
+  let hl, cls;
+  if (v.replies.length) { hl = t('replyH'); cls = 'ok'; } else if (v.seen) { hl = t('seenH'); cls = 'ok'; }
+  else if (v.delivered) { hl = t('deliv'); cls = 'ok'; } else if (v.custody) { hl = t('carried', {n: tname(v.custody.node_name)}); cls = 'go'; }
+  else { hl = t('wait'); cls = 'wait'; }
+  const sg = v.delivered ? 2 : v.custody ? 1 : 0, x = v.custody && v.custody.extra;
+  const node = (lit, icon, name, time) => `<div class="jn ${lit ? 'lit' : ''}"><div class="n">${sp(icon, icon === 'truck' ? 1 : 2)}</div>${esc(name)}<br>${time}</div>`;
+  const jr = `<div class="jr">${node(true, 'phone', t('jPhone'), when(b.created, lang))}<div class="jl ${sg ? 'full' : 'wait'}"></div>` +
+    `${node(sg > 0, 'truck', t('jTruck'), v.custody ? when(v.custody.t, lang) : '··:··')}<div class="jl ${sg > 1 ? 'full' : sg ? 'go' : ''}"></div>` +
+    `${node(sg > 1, 'clinic', t('jClinic'), v.delivered ? when(v.delivered.t, lang) : x ? '~' + when(x.eta50, lang) : '··:··')}</div>`;
+  const eta = sg === 0 ? nextTruck() : sg === 1 ? (x ? `${t('toClinic')}: ${t('eta', {a: when(x.eta50, lang), b: when(x.eta90, lang)})} (${t('basis', {n: x.n})}${x.storm ? ', ' + t('storm') : ''})` : '')
+    : v.seen ? t('seen', {t: when(v.seen.t, lang)}) : v.replies.length ? '' : t('answer');
+  const photos = v.photos.map(p => {
+    const done = Object.values(E).some(e => e.bundle === p.id && e.type === 'custody'), pc = Math.round((PR[p.id] || 0) * 100);
+    const txt = done ? t('pDone') : pc === 0 ? t('pWait') : link ? t('pGo', {p: pc}) : t('pPart', {p: pc});
+    return `<div class="photo">${sp('camera', 2)}${pbar(done ? 100 : pc)}<span>${esc(txt)}</span></div>`;
+  }).join('');
+  const sub = [when(b.created, lang), sv && b.kind === 'sos' ? `<i class="sw" style="background:${sv.c}"></i> ${sv[lang]}` : '', b.kind === 'sos' ? esc(b.body.text || '') : ''].filter(Boolean).join(' · ');
+  return `<article class="card box"><div class="chead">${ico(b, 3)}<div class="t">${px(title, 2)}<small>${sub}</small></div>${spk(hl)}</div>
+    <div class="say ${cls}">${px(hl, 2)}</div>${jr}${eta ? `<div class="eta">${esc(eta)}</div>` : ''}${photos}${v.replies.map(replyHtml).join('')}</article>`;
+}
+function render() {
+  if (!me) return;
+  const all = Object.values(B);
+  H('#alerts').html = all.filter(b => b.kind === 'alert').sort((a, b) => b.created - a.created).slice(0, 2).map(b =>
+    `<div class="alert box flat">${ico(b, 3)}<div class="t">${px(titleOf(b, lang), 2)}<small>${t('alertFrom')} · ${when(b.created, lang)}</small></div>${spk(titleOf(b, lang))}</div>`).join('');
+  const mine = all.filter(b => b.src === me.id && b.kind !== 'photo');
+  const inbox = all.filter(b => b.dst === me.id && !(b.re && B[b.re]));
+  const items = mine.map(b => [b.created, card(b)]).concat(inbox.map(b => [b.created,
+    `<article class="card box"><div class="chead">${sp('clinic', 3)}<div class="t">${px(t('fromClinic'), 2)}<small>${when(b.created, lang)}</small></div></div>${replyHtml(b)}</article>`]));
+  items.sort((a, b) => b[0] - a[0]);
+  H('#list').html = items.map(x => x[1]).join('') || `<div class="empty">${t('empty')}</div>`;
+}
+function chrome() {
+  document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  $('#langBtn').innerHTML = px(lang === 'ar' ? 'EN' : 'ع', lang === 'ar' ? 2 : 3);
+  $('#hNeed').innerHTML = px(t('need'), 2); $('#hMsgs').innerHTML = px(t('msgs'), 2);
+  const camp = world && me && world.camps.find(c => c.id === me.camp);
+  $('#who').textContent = me ? me.name + (camp ? ' · ' + (lang === 'ar' ? camp.name_ar : camp.name) : '') : '';
+  $('#grid').innerHTML = Object.entries(CATS).map(([k, c]) => `<button class="btn tile" data-cat="${k}">${sp(c.i, 3)}${px(c[lang], 2)}</button>`).join('')
+    + `<button class="btn tile wide" data-cat="msg">${sp('mail', 2)}${px(t('other'), 2)}</button>`;
+  sky(); render();
+}
+function say(text) {
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = lang === 'ar' ? 'ar-SA' : 'en-US'; u.rate = .95; speechSynthesis.speak(u); } catch (e) {}
+}
+
+// ---------- compose ----------
+function openSheet(cat) { draft = {cat, sev: 1, people: 1, text: '', photo: null}; paintSheet(); document.body.classList.add('open'); }
+function paintSheet() {
+  const c = CATS[draft.cat], msg = draft.cat === 'msg';
+  $('#sheetBody').innerHTML = `<div class="shead">${sp(msg ? 'mail' : c.i, 4)}${px(msg ? t('other') : c[lang], 3)}</div>` +
+    (msg ? '' : `<div class="lab">${px(t('sev'), 2)}</div><div class="chips">${SEV.map(s => `<button class="btn chip ${draft.sev === s.pri ? 'on' : ''}" data-sev="${s.pri}"><i class="sw" style="background:${s.c};width:18px;height:18px"></i>${s[lang]}</button>`).join('')}</div>
+      <div class="lab">${px(t('people'), 2)}</div><div class="chips">${[1, 2, 3].map(n => `<button class="btn chip ${draft.people === n ? 'on' : ''}" data-ppl="${n}">${px(n === 3 ? '3+' : n, 3)}</button>`).join('')}</div>`) +
+    `<textarea id="txt" rows="${msg ? 3 : 1}" placeholder="${msg ? t('write') : t('words')}">${esc(draft.text)}</textarea>
+     <div class="chips" style="margin-top:12px">${draft.photo ? `<div class="btn chip on" style="flex-direction:row"><img class="thumb" src="data:image/jpeg;base64,${draft.photo}"> ${kb(atob(draft.photo).length)}</div>`
+       : `<button class="btn chip" style="flex-direction:row" data-photo="pick">${sp('camera', 2)} ${t('addPhoto')}</button>${Q.get('demo') ? `<button class="btn chip" style="flex-direction:row" data-photo="sample">${sp('camera', 2)} ${t('sample')}</button>` : ''}`}</div>
+     <button class="btn red" id="hold"><i></i><span>${px(t('hold'), 3)}</span></button>`;
+  let ht = null; const h = $('#hold');
+  h.addEventListener('pointerdown', () => { h.classList.add('holding'); ht = setTimeout(sendDraft, 850); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => h.addEventListener(ev, () => { clearTimeout(ht); h.classList.remove('holding'); }));
+  $('#txt').addEventListener('input', e => draft.text = e.target.value);
+}
+function closeSheet() { document.body.classList.remove('open'); draft = null; }
+function sendDraft() {
+  if (!draft) return;
+  const msg = draft.cat === 'msg', text = draft.text.trim();
+  if (msg && !text) { $('#txt').focus(); return; }
+  const now = Date.now() / 1000, id = rid();
+  const b = {id, src: me.id, src_name: me.name, camp: me.camp, dst: 'clinic', kind: msg ? 'msg' : 'sos', pri: msg ? 3 : draft.sev,
+    created: now, re: null, body: msg ? {text} : {cat: draft.cat, people: draft.people, text}, blob_size: 0};
+  B[id] = b;
+  if (draft.photo) { const pid = rid();
+    if (raw.set('blob.' + pid, draft.photo)) B[pid] = Object.assign({}, b, {id: pid, kind: 'photo', pri: 5, re: id, body: {name: 'photo.jpg'}, blob_size: atob(draft.photo).length}); }
+  save(); closeSheet(); render(); $('#hMsgs').scrollIntoView({behavior: 'smooth'});
+  if (navigator.vibrate) navigator.vibrate(120);
+}
+function setPhoto(dataUrl) { if (draft) { draft.photo = dataUrl.split(',')[1]; paintSheet(); } }
+function samplePhoto() {
+  const c = document.createElement('canvas'); c.width = 900; c.height = 600; const g = c.getContext('2d');
+  g.fillStyle = '#9fd3df'; g.fillRect(0, 0, 900, 260); g.fillStyle = '#dba463'; g.fillRect(0, 260, 900, 340);
+  for (let i = 0; i < 9000; i++) { g.fillStyle = `hsl(${20 + Math.random() * 30},60%,${30 + Math.random() * 50}%)`; g.fillRect(Math.random() * 900, 250 + Math.random() * 350, 3, 3); }
+  g.fillStyle = '#1d1a16'; g.fillRect(380, 300, 180, 90); g.font = 'bold 34px monospace'; g.fillText('SAMPLE PHOTO', 300, 120);
+  setPhoto(c.toDataURL('image/jpeg', .9));
+}
+$('#file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { const img = new Image(); img.onload = () => {
+    const s = Math.min(1, 900 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+    c.width = img.width * s; c.height = img.height * s; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    setPhoto(c.toDataURL('image/jpeg', .72)); }; img.src = r.result; };
+  r.readAsDataURL(f); e.target.value = '';
+});
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-cat],[data-sev],[data-ppl],[data-photo],[data-say],[data-camp]');
+  if (!el) return;
+  const d = el.dataset;
+  if (d.cat) openSheet(d.cat);
+  else if (d.sev) { draft.sev = +d.sev; paintSheet(); }
+  else if (d.ppl) { draft.people = +d.ppl; paintSheet(); }
+  else if (d.photo === 'pick') $('#file').click();
+  else if (d.photo === 'sample') samplePhoto();
+  else if (d.say) say(d.say);
+  else if (d.camp) start($('#sName').value.trim() || 'Salem', d.camp);
+});
+$('#veil').addEventListener('click', closeSheet);
+$('#rcpt').addEventListener('click', () => $('#rcpt').classList.remove('show'));
+$('#langBtn').addEventListener('click', () => { lang = lang === 'ar' ? 'en' : 'ar'; LS.set('lang', lang); chrome(); });
+
+// ---------- boot ----------
+function start(name, camp) {
+  me = {id: 'ph-' + rid().slice(0, 8), name, role: 'phone', camp};
+  LS.set('me', me); $('#setup').style.display = 'none'; chrome();
+}
+(async function boot() {
+  try { world = await (await fetch('/api/world', {cache: 'no-store'})).json(); LS.set('world', world); } catch (e) {}
+  if (!me && Q.get('auto')) { const [n, c] = Q.get('auto').split(','); start(n, c); }
+  if (!me) {
+    $('#sCamps').innerHTML = ((world || {}).camps || []).map(c => `<button class="btn" data-camp="${c.id}">${esc(c.name)} · ${esc(c.name_ar)}</button>`).join('');
+    $('#setup').style.display = 'flex';
+  }
+  chrome(); tick(); setInterval(() => { sky(); if (!draft) render(); }, 20000);
+})();
+window.wasl = {showReceipt, sendDraft, openSheet, samplePhoto, state: () => ({me, B, E, FC, PR, link})};
+</script>
+</body>
+</html>

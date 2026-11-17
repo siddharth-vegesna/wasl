@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Wasl · Kit</title>
+<link rel="stylesheet" href="common.css"><link rel="stylesheet" href="pixel.css" data-skin>
+<style>body{padding:24px;max-width:1100px;margin:0 auto}.row{display:flex;flex-wrap:wrap;gap:15px;align-items:flex-end;margin:12px 0 24px}.cell{text-align:center}.cell small{display:block;margin-top:6px}.sw{width:48px;height:48px}.two{display:grid;grid-template-columns:1fr 2fr;gap:24px}</style></head>
+<body>
+<div data-brand="5"></div>
+<p class="lab">Type · hand-drawn 5×7</p>
+<div data-px="5">Stay where you are.</div><br><div data-px="3">ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789 .,:!?-+/%'·>()✓×#=</div><br><div data-px="2">Truck 7 has your message · 9 of 10 trips arrive by 05:38</div><br><div data-px="3">ابقَ في مكانك · الشاحنة هنا</div>
+<p class="lab">Palette · locked</p><div class="row" id="pal"></div>
+<p class="lab">Sprites · ×4</p><div class="row" id="spr"></div>
+<p class="lab">Controls</p>
+<div class="row"><button class="btn">Button</button><button class="btn on">Selected</button><button class="btn red">Hold to send</button><button class="btn green">Send</button><span class="tag">Tag</span><span class="tag ok"><i></i>In range</span><span class="tag warn">Weak</span><span class="tag bad"><i></i>No signal</span><span id="bar"></span></div>
+<p class="lab">Scenes</p>
+<div class="two"><div class="box"><canvas class="px" id="s1"></canvas></div><div class="box"><canvas class="px" id="s2"></canvas></div></div>
+<script src="common.js"></script>
+<script>
+$('#pal').innerHTML = Object.entries(PAL).map(([k, c]) => `<div class="cell"><div class="sw box flat" style="background:${c}"></div><small>${c}</small></div>`).join('');
+$('#spr').innerHTML = Object.keys(SPR).map(n => `<div class="cell">${sp(n, 4)}<small>${n}</small></div>`).join('');
+$('#bar').innerHTML = pbar(60);
+const a = Scene($('#s1'), 'phone'), b = Scene($('#s2'), 'route'); let i = 0;
+setInterval(() => { i++; a.set({on: i % 2 === 1}); b.set({pos: ['camp', 'road', 'town'][i % 3], weak: i % 2 === 0}); }, 4000);
+</script></body></html>

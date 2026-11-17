@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wasl · Pitch</title>
+<link rel="stylesheet" href="common.css"><link rel="stylesheet" href="pixel.css" data-skin>
+<style>
+body{overflow:hidden}
+section{display:none;position:absolute;inset:0;padding:9vh 8vw 11vh;flex-direction:column;justify-content:center}
+section.cur{display:flex}
+.k{color:var(--clay);margin-bottom:3vh}
+.lead{font-size:clamp(15px,1.55vw,22px);line-height:1.5;max-width:56ch;margin-top:3.5vh}
+.lead b{background:var(--yellow);padding:0 3px}
+.row2{display:grid;grid-template-columns:1.15fr .85fr;gap:6vw;align-items:center}
+.strip{position:absolute;left:0;right:0;bottom:0;border-top:var(--u) solid var(--ink)}
+.strip canvas{max-height:30vh;object-fit:cover;object-position:bottom}
+.flow{display:flex;align-items:center;margin-top:5vh;max-width:1000px}
+.stop{flex:none;width:210px;padding:18px 9px;text-align:center}
+.stop small{display:block;margin-top:9px;font-size:14px;color:var(--ink)}
+.dash{flex:1;border-top:var(--u) dashed var(--ink);position:relative}
+.dash::after{content:"";position:absolute;top:-9px;width:15px;height:15px;background:var(--amber);border:var(--u) solid var(--ink);animation:run 2s steps(9) infinite}
+.dash.back::after{animation-direction:reverse}
+@keyframes run{from{left:0}to{left:calc(100% - 15px)}}
+.tk{position:relative;max-width:420px;padding:21px}
+.tk .perf{border-top:var(--u) dashed var(--ink);margin:18px -21px 15px}
+.tk .who2{max-width:62%;margin:12px 0}
+.stamp{position:absolute;right:15px;top:15px;padding:6px 9px;border:var(--u) solid var(--green);outline:var(--u) solid var(--green);outline-offset:var(--u);color:var(--green);text-align:center;background:var(--paper)}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:420px}
+.tiles .box{padding:18px 6px;text-align:center}
+.ledger{margin-top:4vh;border-top:var(--u) solid var(--ink);max-width:1100px}
+.ledger>div{display:grid;grid-template-columns:minmax(190px,auto) 1fr;gap:30px;align-items:center;padding:2.2vh 0;border-bottom:1px dashed var(--mute);font-size:clamp(14px,1.35vw,19px)}
+.ledger small{font-size:.85em;display:block;margin-top:3px}
+.fine{font-size:12.5px;color:var(--mute);margin-top:3vh;max-width:80ch}
+.links{display:flex;gap:9px;margin-top:5vh;flex-wrap:wrap}
+.links .btn{font-size:16px;padding:12px 18px}
+.nav{position:fixed;left:0;right:0;bottom:15px;display:flex;justify-content:center;gap:6px;z-index:5}
+.nav i{width:12px;height:12px;border:var(--u) solid var(--ink);background:var(--paper);cursor:pointer}.nav i.cur{background:var(--ink)}
+.corner{position:fixed;top:15px;left:21px;z-index:5}.hint{position:fixed;top:21px;right:21px;z-index:5;color:var(--mute);font-size:12px}
+.night{max-width:440px}
+.night .dlg{padding:12px;border-top:var(--u) solid var(--ink)}
+</style>
+</head>
+<body>
+<div class="corner"><span data-brand="3"></span></div>
+<div class="hint">← → or click · <a href="live.html">stage</a> · <a href="sim.html">simulation</a></div>
+
+<section>
+  <div class="k" data-h="k">GDG Breaking Bytes · Staying connected in the deep desert</div>
+  <div><span data-brand="12" id="bigbrand"></span></div>
+  <div style="margin-top:4vh" data-h="3">Messages that ride the water truck, with a receipt.</div>
+  <p class="lead">In Arabic, <b>wasl</b> means both "connection" and "receipt".</p>
+  <div class="strip"><canvas class="px" id="sc1"></canvas></div>
+</section>
+
+<section><div class="row2"><div>
+  <div class="k" data-h="k">The problem</div>
+  <div data-h="1">Silence makes people walk.</div>
+  <p class="lead">You send an SOS with no signal. <b>Nothing answers.</b> So you leave your vehicle to look for coverage, and the walk is what kills. Getting a message out is half the problem. <b>Knowing it arrived</b> is the other half.</p></div>
+  <div class="box night"><canvas class="px" id="sc2"></canvas><div class="dlg"><div data-h="3">No truck nearby.</div></div></div></div>
+</section>
+
+<section>
+  <div class="k" data-h="k">The idea</div>
+  <div data-h="2">The truck already goes there.</div>
+  <div class="flow"><div class="stop box"><span data-sp="phone,6"></span><small>Camp phone<br>no signal, no app store</small></div><div class="dash"></div>
+    <div class="stop box"><span data-sp="truck,5"></span><small>Water truck<br>Raspberry Pi hotspot in the cab</small></div><div class="dash"></div>
+    <div class="stop box"><span data-sp="clinic,6"></span><small>Clinic in town<br>replies ride back</small></div></div>
+  <p class="lead">No towers, no airtime, no new habit. The water truck visits every camp on a schedule. We put a <b>$60 computer</b> in its cab.</p>
+</section>
+
+<section><div class="row2"><div>
+  <div class="k" data-h="k">The product is the receipt</div>
+  <div data-h="2">Proof that someone knows.</div>
+  <p class="lead">The moment the truck takes your message, your phone gets a custody receipt and an honest forecast, learned from <b>that truck's own last 40 trips</b>. Delivered, read and answered each come back as another receipt.</p></div>
+  <div class="tk box"><div class="stamp"><div id="stAr"></div><div data-px="2">OK ✓</div></div><div data-px="2">Receipt · 21:43</div><div class="who2" data-px="2">Truck 7 has your message</div><div data-px="4">Stay where you are.</div><div class="perf"></div><p>Reaches the clinic: likely by 03:53 · 9 of 10 trips arrive by 05:38</p></div></div>
+</section>
+
+<section><div class="row2"><div>
+  <div class="k" data-h="k">For people who do not read</div>
+  <div data-h="2">Six pictures. Hold to send.</div>
+  <p class="lead">Every status can be <b>read aloud</b>. Arabic and English. The sky is the signal bar: night means no truck, day means the truck is here.</p></div>
+  <div class="tiles"><div class="box" data-sp="aid,5"></div><div class="box" data-sp="sick,5"></div><div class="box" data-sp="water,5"></div><div class="box" data-sp="car,5"></div><div class="box" data-sp="camel,5"></div><div class="box" data-sp="compass,5"></div></div></div>
+</section>
+
+<section>
+  <div class="k" data-h="k">When the link is weak or drops</div>
+  <div data-h="2">The SOS goes first. The photo resumes.</div>
+  <div class="ledger">
+    <div><span data-h="2">172 B</span><div><b>Priority order.</b> Life-threatening first, photos last. The whole SOS crosses before a single photo chunk.</div></div>
+    <div><span data-h="2">82%</span><div><b>Resume, never restart.</b> The truck drove off at 82%. The next contact starts at 82%.</div></div>
+    <div><span data-h="2">0</span><div><b>Receipts for half a message.</b> Custody is granted only when a bundle is whole, and storage is freed only when the destination confirms.</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="k" data-h="k">The desert rules</div>
+  <div data-h="2">Built for heat, dust and no power.</div>
+  <div class="ledger">
+    <div><span data-h="3">Power</span><div>5 W from the truck's 12 V socket. Camps need nothing new.</div></div>
+    <div><span data-h="3">Heat, dust</span><div>One sealed box in a cab. Nothing mounted in the field.</div></div>
+    <div><span data-h="3">Cost</span><div>About $100 per truck, shared by every camp on its route. No fees, no per-user hardware.</div></div>
+    <div><span data-h="3">Clock</span><div>A Pi forgets the time. The truck learns it from the first phone it meets.</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="k" data-h="k">Measured in simulation, not in the field</div>
+  <div data-h="2">We measured what we promise.</div>
+  <div class="ledger">
+    <div><span data-h="2" style="color:var(--green)">~86%</span><div><b>Promises kept.</b> The receipt says "9 of 10". Measured across 27 simulated camps and 3 trucks.</div></div>
+    <div><span data-h="2" style="color:var(--clay)">~33 h</span><div><b>Median SOS to town.</b> About 24 h when 12 other vehicles carry Wasl. Today the number is "never".</div></div>
+    <div><span data-h="2" style="color:var(--red)">81 km</span><div><b>To the nearest signal</b> from the average simulated camp. About 20 hours on foot, with no way to know anyone heard.</div></div>
+  </div>
+  <p class="fine">Camp positions, trip times and the forecast's history are simulated and labelled so in the product. The node, the sync, the receipts and the resume are real code you can watch run.</p>
+</section>
+
+<section>
+  <div class="k" data-h="k">How it gets deployed</div>
+  <div data-h="2">One truck. Six camps. Four weeks.</div>
+  <div class="ledger">
+    <div><span data-h="3">1 · Pilot</span><div>One water contractor, one route, one clinic. The driver does nothing new: the box powers on with the engine.</div></div>
+    <div><span data-h="3">2 · Route</span><div>Every truck on the route, same software. More carriers mean shorter waits, and the forecast learns each truck separately.</div></div>
+    <div><span data-h="3">3 · Then</span><div>Any vehicle as a carrier, a native app for phone-to-phone relay, and a satellite messenger on the truck for life-threatening bundles only.</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="k" data-h="k">Wasl</div>
+  <div data-h="1">It arrived.</div>
+  <p class="lead">A connection is only worth something when you know it worked.</p>
+  <div class="links"><a class="btn on" href="live.html">Live demo</a><a class="btn" href="sim.html">Network simulation</a><a class="btn" href="live.html">Clinic console</a></div>
+</section>
+
+<div class="nav" id="nav"></div>
+<script>
+// pixel sizes are whole numbers, so pick the type scale once from the screen width
+{ const big = innerWidth > 1300, T = {1: big ? 11 : 8, 2: big ? 7 : 5, 3: big ? 4 : 3, k: 2};
+  document.querySelectorAll('[data-h]').forEach(el => el.dataset.px = T[el.dataset.h]);
+  if (!big) document.getElementById('bigbrand').dataset.brand = 9; }
+</script>
+<script src="common.js"></script>
+<script>
+$('#stAr').innerHTML = px('وصل', 4);
+Scene($('#sc2'), 'phone');
+let hop = 0; const s1 = Scene($('#sc1'), 'route'); setInterval(() => s1.set({pos: ['camp', 'road', 'town', 'road'][hop++ % 4]}), 3500);
+const S = $$('section'), nav = $('#nav');
+let i = Math.min(S.length - 1, Math.max(0, (+location.hash.slice(1) || 1) - 1));
+nav.innerHTML = S.map(() => '<i></i>').join('');
+function go(n) { i = Math.max(0, Math.min(S.length - 1, n)); S.forEach((s, j) => s.classList.toggle('cur', j === i)); [...nav.children].forEach((d, j) => d.classList.toggle('cur', j === i)); history.replaceState(null, '', '#' + (i + 1)); }
+addEventListener('keydown', e => { if (['ArrowRight', ' ', 'PageDown', 'Enter'].includes(e.key)) go(i + 1); if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) go(i - 1); });
+addEventListener('click', e => { if (e.target.closest('a')) return; const dot = e.target.closest('#nav i'); if (dot) return go([...nav.children].indexOf(dot)); go(i + (e.clientX > innerWidth * .3 ? 1 : -1)); });
+addEventListener('hashchange', () => go((+location.hash.slice(1) || 1) - 1));
+go(i);
+</script>
+</body>
+</html>

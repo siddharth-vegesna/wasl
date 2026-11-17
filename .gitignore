@@ -1,0 +1,14 @@
+# runtime databases, recreated on start
+data/
+# previous UI, kept locally as a backup only
+_old_ui/
+# local tooling
+.claude/
+__pycache__/
+*.pyc
+.DS_Store
+
+# internal notes: rehearsal playbook, checklist, build plan
+GUIDE.md
+CHECKLIST.md
+PLAN.md
