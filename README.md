@@ -7,6 +7,29 @@ GDG Breaking Bytes · track: *Staying Connected in the Deep Desert*.
 
 "Wasl" means both *connection* and *receipt* in Arabic. That double meaning is the project.
 
+| | |
+| --- | --- |
+| **Deck** | https://siddharth-vegesna.github.io/wasl/ |
+| **Network simulation** | https://siddharth-vegesna.github.io/wasl/sim.html |
+| **Design kit** | https://siddharth-vegesna.github.io/wasl/kit.html |
+| **Run the real thing** | `./scripts/run-local.sh`, then http://localhost:8081/stage |
+
+## How it works
+
+```
+ camp phone            water truck                 clinic in town
+ (no signal)      (small computer, own Wi-Fi)        (laptop)
+
+   SOS  ───────────►  takes custody  ───────────►  delivered
+   ◄── receipt + ETA      carries it                  │
+   ◄──────────────────  brings it back  ◄──────────  reply
+```
+
+1. The truck pulls into a camp. Phones hand it their messages, most urgent first.
+2. The phone gets a receipt at once: who has the message, and when it should arrive.
+3. In town the truck hands everything to the clinic and picks up the replies.
+4. On its next visit the replies, and the "delivered" receipts, reach the phones.
+
 ## The look
 
 Pixel art, built from nothing stock: one locked 16-colour desert palette, one pixel size, a 5×7 font and 20 sprites drawn by hand, hard edges everywhere. No gradients, blur, glow or emoji. Light sand background with ink text, because it has to be read in sunlight.
